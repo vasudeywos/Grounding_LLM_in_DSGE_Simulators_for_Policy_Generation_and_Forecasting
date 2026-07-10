@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import torch
 
 from dsge_rl.environment import DSGEPolicyEnvironment
+from dsge_rl.modeling import token_log_probs
 
 
 @dataclass
@@ -14,6 +15,7 @@ class TurnRollout:
     reward: float
     text: str
     semantic_features: torch.Tensor | None = None
+    behavior_log_probs: torch.Tensor | None = None
 
 
 def render_chat(tokenizer, system: str, history: list[dict[str, str]], user: str) -> str:
@@ -31,6 +33,8 @@ def collect_trajectory(model, tokenizer, environment: DSGEPolicyEnvironment, sce
         prompt = render_chat(tokenizer, system, history, user)
         encoded = tokenizer(prompt, return_tensors="pt").to(model.device)
         prompt_length = encoded.input_ids.shape[1]
+        was_training = model.training
+        model.eval()
         with torch.no_grad():
             output = model.generate(
                 **encoded,
@@ -43,7 +47,12 @@ def collect_trajectory(model, tokenizer, environment: DSGEPolicyEnvironment, sce
         transition = environment.step_text(text)
         mask = torch.zeros(output.shape[1] - 1, dtype=torch.bool, device=output.device)
         mask[prompt_length - 1 :] = True
-        turns.append(TurnRollout(output[0], mask, transition.reward, text))
+        with torch.no_grad():
+            logits = model(input_ids=output, use_cache=False).logits
+            behavior_log_probs = token_log_probs(logits, output)[0][mask].detach()
+        if was_training:
+            model.train()
+        turns.append(TurnRollout(output[0], mask, transition.reward, text, behavior_log_probs=behavior_log_probs))
         history.extend([{"role": "user", "content": user}, {"role": "assistant", "content": text}])
         observation = transition.observation
     return turns
@@ -71,6 +80,8 @@ def collect_sfr_trajectory(
         prompt = render_chat(tokenizer, system, history, user)
         encoded = tokenizer(prompt, return_tensors="pt").to(model.device)
         prompt_length = encoded.input_ids.shape[1]
+        was_training = model.training
+        model.eval()
         with torch.no_grad():
             output = model.generate(
                 input_ids=encoded.input_ids,
@@ -87,7 +98,21 @@ def collect_sfr_trajectory(
         transition = environment.step_text(text)
         mask = torch.zeros(full_ids.shape[0] - 1, dtype=torch.bool, device=full_ids.device)
         mask[prompt_length - 1 :] = True
-        turns.append(TurnRollout(full_ids, mask, transition.reward, text, semantic_features.squeeze(0).cpu()))
+        with torch.no_grad():
+            logits = model(full_ids.unsqueeze(0), semantic_features).logits
+            behavior_log_probs = token_log_probs(logits, full_ids.unsqueeze(0))[0][mask].detach()
+        if was_training:
+            model.train()
+        turns.append(
+            TurnRollout(
+                full_ids,
+                mask,
+                transition.reward,
+                text,
+                semantic_features.squeeze(0).cpu(),
+                behavior_log_probs,
+            )
+        )
         history.extend([{"role": "user", "content": user}, {"role": "assistant", "content": text}])
         observation = transition.observation
     return turns

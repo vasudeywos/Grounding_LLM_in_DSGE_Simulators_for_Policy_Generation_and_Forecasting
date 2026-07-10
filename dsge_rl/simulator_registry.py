@@ -28,6 +28,8 @@ def simulator_registry(periods: int = 40, turns: int = 4) -> dict[str, Environme
         "burn_in": 8,
         "turns": turns,
         "action_duration": 4,
+        "mode": "control",
+        "forecast_horizon": 8,
         "volatility_weight": 0.2,
         "action_weight": 0.01,
         "invalid_action_penalty": 2.0,
@@ -111,4 +113,3 @@ def validate_registry_files() -> None:
     missing = [config.model_path for config in simulator_registry().values() if not Path(config.model_path).is_file()]
     if missing:
         raise FileNotFoundError(f"Missing DSGE simulator files: {missing}")
-

@@ -49,6 +49,8 @@ class EnvironmentConfig:
     action_weight: float = 0.01
     invalid_action_penalty: float = 2.0
     reward_scale: float = 10.0
+    mode: str = "control"
+    forecast_horizon: int = 8
 
 
 @dataclass(frozen=True)
@@ -74,7 +76,8 @@ class TrainingConfig:
     max_grad_norm: float = 1.0
     save_every: int = 25
     group_size: int = 4
-    grpo_epochs: int = 1
+    grpo_epochs: int = 2
+    grpo_kl_coefficient: float = 0.01
     clip_range: float = 0.2
     value_clip_range: float = 0.2
     value_coefficient: float = 0.5
@@ -115,6 +118,8 @@ def load_config(path: str | Path) -> ExperimentConfig:
         action_weight=float(env.get("action_weight", 0.01)),
         invalid_action_penalty=float(env.get("invalid_action_penalty", 2.0)),
         reward_scale=float(env.get("reward_scale", 10.0)),
+        mode=str(env.get("mode", "control")),
+        forecast_horizon=int(env.get("forecast_horizon", 8)),
     )
     model_raw = raw.get("model", {})
     if "lora_targets" in model_raw:

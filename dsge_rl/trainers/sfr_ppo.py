@@ -13,7 +13,7 @@ from dsge_rl.config import TrainingConfig
 from dsge_rl.environment import DSGEPolicyEnvironment
 from dsge_rl.modeling import token_log_probs
 from dsge_rl.rollout import collect_sfr_trajectory
-from dsge_rl.trainers.common import save_metrics, set_seed, trainable_parameters
+from dsge_rl.trainers.common import disable_dropout, save_metrics, set_seed, trainable_parameters
 
 
 class SFRCrossSimulatorPPOTrainer:
@@ -36,6 +36,8 @@ class SFRCrossSimulatorPPOTrainer:
         self.value_optimizer = torch.optim.AdamW(trainable_parameters(value_model), lr=training.learning_rate)
         self.output_dir = Path(training.output_dir)
         self.metrics: list[dict] = []
+        disable_dropout(self.model)
+        disable_dropout(self.value_model)
 
     def train(self) -> list[dict]:
         set_seed(self.training.seed)
@@ -91,9 +93,10 @@ class SFRCrossSimulatorPPOTrainer:
             for turn in trajectory:
                 ids = turn.input_ids.unsqueeze(0)
                 features = turn.semantic_features.unsqueeze(0)
-                logits = self.model(ids, features).logits
                 values = self.value_model(ids, features)
-                old_log_probs.append(token_log_probs(logits, ids)[0][turn.action_mask])
+                if turn.behavior_log_probs is None:
+                    raise RuntimeError("Rollout is missing generation-time behavior log probabilities")
+                old_log_probs.append(turn.behavior_log_probs.to(self.model.device))
                 old_values.append(values[:, :-1][0][turn.action_mask])
                 segments.append((turn.input_ids, turn.action_mask, turn.semantic_features))
         log_probs = torch.cat(old_log_probs)
@@ -177,4 +180,3 @@ class SFRCrossSimulatorPPOTrainer:
         self.value_model.save_pretrained(value_destination)
         self.tokenizer.save_pretrained(policy_destination / "tokenizer")
         save_metrics(self.output_dir / "metrics.jsonl", self.metrics)
-

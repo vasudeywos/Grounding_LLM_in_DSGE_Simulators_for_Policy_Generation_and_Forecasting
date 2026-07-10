@@ -34,13 +34,27 @@ class DSGEPolicyEnvironment:
         self.previous_loss = 0.0
         self.invalid_actions = 0
         self.action_energy = 0.0
+        self.current_period = 0
+        self.policy_schedule: dict[str, list[float]] = {}
 
     def reset(self, scenario: ScenarioConfig) -> dict[str, float]:
+        if self.config.mode not in {"control", "planning"}:
+            raise ValueError("Environment mode must be control or planning")
         self.scenario = scenario
         self.turn = 0
         self.invalid_actions = 0
         self.action_energy = 0.0
+        self.current_period = 0
+        self.policy_schedule = {}
         self.shock_paths = {name: self._pad(values) for name, values in scenario.shocks.items()}
+        state = self.simulator.reset_transition()
+        if self.config.mode == "control":
+            for _ in range(self.config.burn_in):
+                state, _ = self.simulator.advance(self._control_paths(), self.config.forecast_horizon)
+                self.current_period += 1
+            self.baseline_loss = self._state_loss(state.values)
+            self.previous_loss = self.baseline_loss
+            return self._observation_state(state.values)
         baseline = self.simulator.simulate(self.shock_paths, self.target_names)
         self.baseline_loss = self._loss(baseline)
         self.previous_loss = self.baseline_loss
@@ -52,6 +66,11 @@ class DSGEPolicyEnvironment:
     def step(self, action: ParsedAction) -> Transition:
         if self.scenario is None:
             raise RuntimeError("Call reset before step")
+        if self.config.mode == "control":
+            return self._step_control(action)
+        return self._step_planning(action)
+
+    def _step_planning(self, action: ParsedAction) -> Transition:
         action_energy = 0.0
         if action.valid:
             action_energy = self._apply(action.shocks)
@@ -65,6 +84,21 @@ class DSGEPolicyEnvironment:
         self.previous_loss = economic_loss
         index = min(self.config.burn_in + self.turn, len(frame) - 1)
         return Transition(self._observation(frame, index), reward, terminated, action.valid, economic_loss)
+
+    def _step_control(self, action: ParsedAction) -> Transition:
+        action_energy = 0.0
+        if action.valid:
+            action_energy = self._schedule_action(action.shocks)
+        else:
+            self.invalid_actions += 1
+        state, _ = self.simulator.advance(self._control_paths(), self.config.forecast_horizon)
+        self.current_period += 1
+        self.turn += 1
+        economic_loss = self._state_loss(state.values)
+        terminated = self.turn >= self.config.turns
+        reward = self._reward(economic_loss, action_energy, action.valid, terminated)
+        self.previous_loss = economic_loss
+        return Transition(self._observation_state(state.values), reward, terminated, action.valid, economic_loss)
 
     def system_prompt(self) -> str:
         lever_lines = [
@@ -105,6 +139,39 @@ class DSGEPolicyEnvironment:
             energy += magnitude * magnitude
         return energy
 
+    def _schedule_action(self, shocks: dict[str, float]) -> float:
+        lever_by_shock = {lever.shock: lever for lever in self.config.levers}
+        energy = 0.0
+        schedule_length = self.config.periods + self.config.forecast_horizon
+        for name, magnitude in shocks.items():
+            path = self.policy_schedule.setdefault(name, [0.0] * schedule_length)
+            lever = lever_by_shock[name]
+            value = magnitude
+            for offset in range(self.config.action_duration):
+                index = self.current_period + offset
+                if index < schedule_length:
+                    path[index] += value
+                    value *= lever.persistence
+            energy += magnitude * magnitude
+            self.action_energy += magnitude * magnitude
+        return energy
+
+    def _control_paths(self) -> dict[str, list[float]]:
+        horizon = self.config.forecast_horizon
+        names = set(self.shock_paths).union(self.policy_schedule)
+        paths = {}
+        for name in names:
+            scenario_path = self.shock_paths.get(name, [])
+            policy_path = self.policy_schedule.get(name, [])
+            values = []
+            for offset in range(horizon):
+                index = self.current_period + offset
+                scenario_value = scenario_path[index] if index < len(scenario_path) else 0.0
+                policy_value = policy_path[index] if index < len(policy_path) else 0.0
+                values.append(scenario_value + policy_value)
+            paths[name] = values
+        return paths
+
     def _loss(self, frame: pd.DataFrame) -> float:
         start = self.config.burn_in
         stop = len(frame)
@@ -113,6 +180,9 @@ class DSGEPolicyEnvironment:
             deviation = frame[target.variable].iloc[start:stop].to_numpy(dtype=float) - target.target
             total += target.weight * float(np.square(deviation).sum())
         return total
+
+    def _state_loss(self, state: dict[str, float]) -> float:
+        return sum(target.weight * (state[target.variable] - target.target) ** 2 for target in self.config.targets)
 
     def _reward(self, loss: float, action_energy: float, valid_action: bool, terminated: bool) -> float:
         improvement = (self.previous_loss - loss) / max(abs(self.baseline_loss), 1.0)
@@ -125,6 +195,9 @@ class DSGEPolicyEnvironment:
     def _observation(self, frame: pd.DataFrame, index: int) -> dict[str, float]:
         row = frame.iloc[index]
         return {target.label: round(float(row[target.variable]), 6) for target in self.config.targets}
+
+    def _observation_state(self, state: dict[str, float]) -> dict[str, float]:
+        return {target.label: round(float(state[target.variable]), 6) for target in self.config.targets}
 
     def clone(self) -> "DSGEPolicyEnvironment":
         clone = object.__new__(DSGEPolicyEnvironment)
@@ -139,4 +212,6 @@ class DSGEPolicyEnvironment:
         clone.previous_loss = self.previous_loss
         clone.invalid_actions = self.invalid_actions
         clone.action_energy = self.action_energy
+        clone.current_period = self.current_period
+        clone.policy_schedule = copy.deepcopy(self.policy_schedule)
         return clone

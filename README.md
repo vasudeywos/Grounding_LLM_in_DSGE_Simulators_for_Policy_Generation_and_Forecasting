@@ -27,13 +27,13 @@ Qwen policy action
         ↓
 Validated shock JSON
         ↓
-Snowdrop shock path
+Current scenario and policy shocks
         ↓
-Full-horizon DSGE simulation
+Rolling-horizon DSGE forecast
         ↓
-Economic loss and turn reward
+Commit first transition
         ↓
-Next economic state
+Immutable realized history, economic loss, and next state
 ```
 
 ### PPO
@@ -133,8 +133,8 @@ RMSE, correlation, and policy-loss improvement
 
 | Path | Description |
 |---|---|
-| `dsge_rl/snowdrop.py` | Snowdrop model loading, shock injection, parameter updates, cloning, and simulation output |
-| `dsge_rl/environment.py` | Multi-turn economic state, accumulated shock paths, economic loss, and reward calculation |
+| `dsge_rl/snowdrop.py` | Snowdrop model loading, committed states, rolling forecasts, irreversible transitions, cloning, and simulation output |
+| `dsge_rl/environment.py` | Control and planning modes, realized state history, policy schedules, economic loss, and reward calculation |
 | `dsge_rl/semantics.py` | Model semantic extraction and policy-action JSON validation |
 | `dsge_rl/simulator_registry.py` | Model-specific targets, policy levers, crisis scenarios, discourse, and simulator paths |
 | `dsge_rl/config.py` | Shared model, environment, scenario, target, lever, and training data structures |
@@ -152,7 +152,7 @@ RMSE, correlation, and policy-loss improvement
 | Path | Description |
 |---|---|
 | `dsge_rl/trainers/common.py` | Random seeding, trainable-parameter selection, and metric persistence |
-| `dsge_rl/trainers/grpo.py` | Group-relative trajectory optimization |
+| `dsge_rl/trainers/grpo.py` | Group-relative trajectory optimization with stored behavior log probabilities, clipped updates, and optional reference KL |
 | `dsge_rl/trainers/ppo.py` | PPO with separate critic, token-level GAE, policy clipping, and value clipping |
 | `dsge_rl/trainers/sfr_ppo.py` | SFR-conditioned PPO over multiple registered simulators |
 

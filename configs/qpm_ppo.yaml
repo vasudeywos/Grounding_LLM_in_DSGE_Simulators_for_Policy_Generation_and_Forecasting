@@ -4,6 +4,8 @@ environment:
   burn_in: 8
   turns: 4
   action_duration: 4
+  mode: control
+  forecast_horizon: 8
   targets:
     - variable: DLA_CPI
       label: Inflation

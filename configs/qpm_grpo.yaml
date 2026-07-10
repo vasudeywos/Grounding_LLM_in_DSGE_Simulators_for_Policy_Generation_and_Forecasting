@@ -4,6 +4,8 @@ environment:
   burn_in: 8
   turns: 4
   action_duration: 4
+  mode: control
+  forecast_horizon: 8
   targets:
     - variable: DLA_CPI
       label: Inflation
@@ -54,6 +56,7 @@ training:
   max_new_tokens: 80
   temperature: 1.0
   group_size: 4
-  grpo_epochs: 1
+  grpo_epochs: 2
+  grpo_kl_coefficient: 0.01
   clip_range: 0.2
   save_every: 10

@@ -12,7 +12,7 @@ from dsge_rl.config import ExperimentConfig
 from dsge_rl.environment import DSGEPolicyEnvironment
 from dsge_rl.modeling import TokenValueModel, token_log_probs
 from dsge_rl.rollout import collect_trajectory
-from dsge_rl.trainers.common import save_metrics, set_seed, trainable_parameters
+from dsge_rl.trainers.common import disable_dropout, save_metrics, set_seed, trainable_parameters
 
 
 class PPOTrainer:
@@ -26,6 +26,8 @@ class PPOTrainer:
         self.value_optimizer = torch.optim.AdamW(trainable_parameters(value_model), lr=config.training.learning_rate)
         self.output_dir = Path(config.training.output_dir)
         self.metrics: list[dict] = []
+        disable_dropout(self.model)
+        disable_dropout(self.value_model)
 
     def train(self) -> list[dict]:
         set_seed(self.config.training.seed)
@@ -75,11 +77,11 @@ class PPOTrainer:
         with torch.no_grad():
             for turn in trajectory:
                 ids = turn.input_ids.unsqueeze(0)
-                logits = self.model(input_ids=ids, use_cache=False).logits
                 values = self.value_model(ids)
-                chosen_log_probs = token_log_probs(logits, ids)[0][turn.action_mask]
                 chosen_values = values[:, :-1][0][turn.action_mask]
-                old_log_probs.append(chosen_log_probs)
+                if turn.behavior_log_probs is None:
+                    raise RuntimeError("Rollout is missing generation-time behavior log probabilities")
+                old_log_probs.append(turn.behavior_log_probs.to(self.model.device))
                 old_values.append(chosen_values)
                 segments.append((turn.input_ids, turn.action_mask))
         log_probs = torch.cat(old_log_probs)

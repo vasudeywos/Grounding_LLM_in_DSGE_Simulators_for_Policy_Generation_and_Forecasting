@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from torch import nn
 
 
 def set_seed(seed: int) -> None:
@@ -24,3 +25,8 @@ def save_metrics(path: Path, metrics: list[dict]) -> None:
 def trainable_parameters(model):
     return [parameter for parameter in model.parameters() if parameter.requires_grad]
 
+
+def disable_dropout(model) -> None:
+    for module in model.modules():
+        if isinstance(module, nn.Dropout):
+            module.p = 0.0
