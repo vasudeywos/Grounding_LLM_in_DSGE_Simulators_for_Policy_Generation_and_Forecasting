@@ -171,37 +171,3 @@ RMSE, correlation, and policy-loss improvement
 |---|---|
 | `The Global Economic Impacts of the COVID-19 Pandemic/` | Published epidemiological assumptions, shocks, G-Cubed results, figure data, README, and R script |
 | `dsge_rl/pandemic_validation.py` | Pandemic workbook loading, GSW shock mapping, annual result alignment, and validation metrics |
-| `dsge_rl/cli/pandemic_validate.py` | Pandemic validation entry point with optional SFR-PPO evaluation |
-
-### Command entry points
-
-| Path | Description |
-|---|---|
-| `dsge_rl/cli/grpo.py` | GRPO entry point |
-| `dsge_rl/cli/ppo.py` | PPO entry point |
-| `dsge_rl/cli/ppo_sfr.py` | Cross-simulator SFR-PPO entry point |
-| `dsge_rl/cli/evaluate.py` | Policy adapter evaluation entry point |
-| `dsge_rl/cli/cross_test.py` | Cross-simulator evaluation entry point |
-| `semantic_shift/cli/train.py` | Semantic model training entry point |
-| `semantic_shift/cli/encode.py` | Semantic embedding export entry point |
-
-### Configuration and data
-
-| Path | Description |
-|---|---|
-| `configs/qpm_grpo.yaml` | QPM GRPO experiment values |
-| `configs/qpm_ppo.yaml` | QPM PPO experiment values |
-| `configs/semantic_bert.yaml` | Standalone semantic-model experiment values |
-| `data/economic_discourse.example.jsonl` | Example time-indexed discourse and shock-target schema |
-| `pyproject.toml` | Package metadata, dependencies, and command registration |
-
-### Tests
-
-| Path | Description |
-|---|---|
-| `tests/test_semantics.py` | Policy-action parsing and constraints |
-| `tests/test_gae.py` | Delayed-reward propagation through GAE |
-| `tests/test_environment.py` | Per-turn simulator execution and reward production |
-| `tests/test_semantic_data.py` | Chronological discourse pairing and leakage prevention |
-| `tests/test_simulator_registry.py` | Simulator-file coverage and scenario discourse |
-| `tests/test_pandemic_validation.py` | Pandemic shock loading, Scenario 6 handling, and GSW mapping |
