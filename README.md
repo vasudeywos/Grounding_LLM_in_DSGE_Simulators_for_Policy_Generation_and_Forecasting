@@ -1,232 +1,214 @@
 # Grounded DSGE Policy RL
 
-This repository contains a Snowdrop DSGE interface, multi-turn GRPO and PPO policy training, a standalone semantic-shift model, and SFR-conditioned PPO across multiple economic simulators.
+## System flow
 
-## Code flow
-
-### DSGE policy training
+### DSGE reinforcement learning
 
 ```text
 DSGE_Simulator/*.yaml
         ↓
-dsge_rl/snowdrop.py
+SnowdropSimulator
         ↓
-dsge_rl/environment.py
+DSGEPolicyEnvironment
         ↓
-dsge_rl/rollout.py
+Multi-turn trajectory collection
         ↓
-dsge_rl/trainers/grpo.py or dsge_rl/trainers/ppo.py
+GRPO or PPO
         ↓
-outputs/<experiment>/
+Policy checkpoints and metrics
 ```
 
-### Semantic-shift training
+### Simulator interaction
 
 ```text
-data/economic_discourse.jsonl
+Economic state
         ↓
-semantic_shift/data.py
+Qwen policy action
         ↓
-semantic_shift/model.py
+Validated shock JSON
         ↓
-semantic_shift/trainer.py
+Snowdrop shock path
         ↓
-outputs/semantic_bert/
+Full-horizon DSGE simulation
+        ↓
+Economic loss and turn reward
+        ↓
+Next economic state
+```
+
+### PPO
+
+```text
+Qwen policy model
+        ↓
+Policy token probabilities
+
+Separate Qwen critic model
+        ↓
+Token value estimates
+
+Simulator rewards + token values
+        ↓
+GAE
+        ↓
+Clipped policy and value objectives
+```
+
+### Semantic-shift model
+
+```text
+Time-indexed economic discourse
+        ↓
+Chronological discourse windows
+        ↓
+Transformer document states
+        ↓
+Temporal semantic difference
+        ↓
+Latent shock embedding
+        ↓
+Named economic-shock estimates
 ```
 
 ### SFR-conditioned PPO
 
 ```text
-Consecutive economic discourse
+Previous and current discourse
         ↓
 Salesforce/SFR-Embedding-2_R
         ↓
-dsge_rl/sfr_conditioning.py
+Current embedding + directional shift + cosine shift
         ↓
-Qwen policy and separate Qwen critic
+Independent policy and critic bridges
         ↓
-dsge_rl/trainers/sfr_ppo.py
+Conditioned Qwen policy and critic
         ↓
-All registered DSGE simulators
+Multi-simulator PPO
 ```
 
-## Important files
+### Cross-simulator evaluation
 
-| File | Purpose |
+```text
+Trained policy
+        ↓
+Simulator registry
+        ↓
+QPM | SW | GSW | Ireland | MVF-US | RBC
+        ↓
+Scenario rollouts
+        ↓
+Actions, rewards, returns, and failures
+```
+
+### Pandemic validation
+
+```text
+Mendeley pandemic shock workbook
+        ↓
+Country and scenario selection
+        ↓
+G-Cubed-to-GSW shock mapping
+        ↓
+GSW simulation and optional policy rollout
+        ↓
+Published G-Cubed outcome comparison
+        ↓
+RMSE, correlation, and policy-loss improvement
+```
+
+## Repository structure
+
+### DSGE models
+
+| Path | Description |
 |---|---|
-| `DSGE_Simulator/` | Snowdrop YAML models used by the environments |
-| `dsge_rl/snowdrop.py` | Loads models, injects shock paths, runs Snowdrop, and returns simulation DataFrames |
-| `dsge_rl/simulator_registry.py` | Defines targets, levers, scenarios, and discourse for every simulator |
-| `dsge_rl/environment.py` | Converts simulator trajectories into observations and rewards |
-| `dsge_rl/semantics.py` | Extracts model descriptions and validates policy-action JSON |
-| `dsge_rl/modeling.py` | Loads the Qwen policy and separate PPO value model |
-| `dsge_rl/rollout.py` | Runs multi-turn policy and simulator interaction |
-| `dsge_rl/trainers/grpo.py` | GRPO training |
-| `dsge_rl/trainers/ppo.py` | PPO training with a separate critic and token-level GAE |
-| `dsge_rl/sfr_conditioning.py` | SFR discourse embeddings and Qwen conditioning bridges |
-| `dsge_rl/trainers/sfr_ppo.py` | SFR-conditioned PPO across simulator tasks |
-| `semantic_shift/data.py` | Loads and pairs chronological discourse windows |
-| `semantic_shift/model.py` | Temporal semantic-shift encoder and embedding heads |
-| `semantic_shift/trainer.py` | Semantic model training and checkpointing |
-| `configs/` | Settings for standalone GRPO, PPO, and semantic experiments |
-| `tests/` | Unit tests for parsing, GAE, environments, temporal data, and simulator registration |
+| `DSGE_Simulator/model.yaml` | Quarterly Projection Model |
+| `DSGE_Simulator/sw_model.yaml` | Smets-Wouters model |
+| `DSGE_Simulator/gsw_model.yaml` | Galí-Smets-Wouters pandemic model |
+| `DSGE_Simulator/Ireland2004.yaml` | Ireland New Keynesian technology-shock model |
+| `DSGE_Simulator/MVF_US.yaml` | US multivariate-filter model |
+| `DSGE_Simulator/RBC.yaml` | Real Business Cycle model |
 
-## Environment setup
+### Simulator and environment
 
-Create and activate a Python environment:
+| Path | Description |
+|---|---|
+| `dsge_rl/snowdrop.py` | Snowdrop model loading, shock injection, parameter updates, cloning, and simulation output |
+| `dsge_rl/environment.py` | Multi-turn economic state, accumulated shock paths, economic loss, and reward calculation |
+| `dsge_rl/semantics.py` | Model semantic extraction and policy-action JSON validation |
+| `dsge_rl/simulator_registry.py` | Model-specific targets, policy levers, crisis scenarios, discourse, and simulator paths |
+| `dsge_rl/config.py` | Shared model, environment, scenario, target, lever, and training data structures |
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-```
+### Policy models and rollouts
 
-Install the project:
+| Path | Description |
+|---|---|
+| `dsge_rl/modeling.py` | Qwen policy loading, LoRA configuration, separate token-value model, and adapter loading |
+| `dsge_rl/rollout.py` | Standard and SFR-conditioned multi-turn trajectory collection |
+| `dsge_rl/sfr_conditioning.py` | SFR shift encoder and independent policy and critic conditioning bridges |
 
-```bash
-pip install -e ".[test]"
-```
+### Reinforcement-learning trainers
 
-The training commands download Qwen, BERT, or SFR weights from Hugging Face when the models are not already cached.
+| Path | Description |
+|---|---|
+| `dsge_rl/trainers/common.py` | Random seeding, trainable-parameter selection, and metric persistence |
+| `dsge_rl/trainers/grpo.py` | Group-relative trajectory optimization |
+| `dsge_rl/trainers/ppo.py` | PPO with separate critic, token-level GAE, policy clipping, and value clipping |
+| `dsge_rl/trainers/sfr_ppo.py` | SFR-conditioned PPO over multiple registered simulators |
 
-## Snowdrop setup
+### Semantic-shift model
 
-The interface in `dsge_rl/snowdrop.py` imports:
+| Path | Description |
+|---|---|
+| `semantic_shift/config.py` | Semantic dataset, model, and training structures |
+| `semantic_shift/data.py` | JSONL loading, chronological pairing, tokenization, document padding, and batching |
+| `semantic_shift/model.py` | Temporal transformer encoder, semantic-shift estimator, shock embedding, and learning objectives |
+| `semantic_shift/trainer.py` | Semantic model optimization, chronological validation, early stopping, and checkpoint export |
 
-```text
-snowdrop.src.driver.importModel
-snowdrop.src.driver.run
-```
+### Pandemic validation
 
-Install Snowdrop from the Framework repository:
+| Path | Description |
+|---|---|
+| `The Global Economic Impacts of the COVID-19 Pandemic/` | Published epidemiological assumptions, shocks, G-Cubed results, figure data, README, and R script |
+| `dsge_rl/pandemic_validation.py` | Pandemic workbook loading, GSW shock mapping, annual result alignment, and validation metrics |
+| `dsge_rl/cli/pandemic_validate.py` | Pandemic validation entry point with optional SFR-PPO evaluation |
 
-```bash
-git clone https://github.com/gumilevskij/Framework.git
-pip install -r Framework/requirements.txt
-pip install Framework/dist/snowdrop-1.0.8-py3-none-any.whl
-```
+### Command entry points
 
-Verify the installation:
+| Path | Description |
+|---|---|
+| `dsge_rl/cli/grpo.py` | GRPO entry point |
+| `dsge_rl/cli/ppo.py` | PPO entry point |
+| `dsge_rl/cli/ppo_sfr.py` | Cross-simulator SFR-PPO entry point |
+| `dsge_rl/cli/evaluate.py` | Policy adapter evaluation entry point |
+| `dsge_rl/cli/cross_test.py` | Cross-simulator evaluation entry point |
+| `semantic_shift/cli/train.py` | Semantic model training entry point |
+| `semantic_shift/cli/encode.py` | Semantic embedding export entry point |
 
-```bash
-python -c "from snowdrop.src.driver import importModel, run; print('Snowdrop ready')"
-```
+### Configuration and data
 
-The simulator models must remain under:
+| Path | Description |
+|---|---|
+| `configs/qpm_grpo.yaml` | QPM GRPO experiment values |
+| `configs/qpm_ppo.yaml` | QPM PPO experiment values |
+| `configs/semantic_bert.yaml` | Standalone semantic-model experiment values |
+| `data/economic_discourse.example.jsonl` | Example time-indexed discourse and shock-target schema |
+| `pyproject.toml` | Package metadata, dependencies, and command registration |
 
-```text
-DSGE_Simulator/Ireland2004.yaml
-DSGE_Simulator/MVF_US.yaml
-DSGE_Simulator/RBC.yaml
-DSGE_Simulator/gsw_model.yaml
-DSGE_Simulator/model.yaml
-DSGE_Simulator/sw_model.yaml
-```
+### Tests
 
-`dsge_rl/simulator_registry.py` resolves these paths automatically for SFR-PPO and cross-simulator testing.
+| Path | Description |
+|---|---|
+| `tests/test_semantics.py` | Policy-action parsing and constraints |
+| `tests/test_gae.py` | Delayed-reward propagation through GAE |
+| `tests/test_environment.py` | Per-turn simulator execution and reward production |
+| `tests/test_semantic_data.py` | Chronological discourse pairing and leakage prevention |
+| `tests/test_simulator_registry.py` | Simulator-file coverage and scenario discourse |
+| `tests/test_pandemic_validation.py` | Pandemic shock loading, Scenario 6 handling, and GSW mapping |
 
-## Run the standalone semantic model
+## Supporting documents
 
-Prepare a dataset from the included example:
-
-```bash
-cp data/economic_discourse.example.jsonl data/economic_discourse.jsonl
-```
-
-Train the model:
-
-```bash
-semantic-train --config configs/semantic_bert.yaml
-```
-
-Export semantic and shock embeddings:
-
-```bash
-semantic-encode \
-  --checkpoint outputs/semantic_bert/best \
-  --input data/economic_discourse.jsonl \
-  --output outputs/semantic_embeddings.jsonl
-```
-
-The required JSONL schema and checkpoint contents are described in `SEMANTIC_MODEL.md`.
-
-## Run GRPO
-
-```bash
-dsge-grpo --config configs/qpm_grpo.yaml
-```
-
-Output:
-
-```text
-outputs/qpm_grpo/
-├── checkpoint-*/
-├── final/
-└── metrics.jsonl
-```
-
-## Run PPO
-
-```bash
-dsge-ppo --config configs/qpm_ppo.yaml
-```
-
-Output:
-
-```text
-outputs/qpm_ppo/final/
-├── policy/
-└── value_model/
-```
-
-Evaluate the PPO policy adapter:
-
-```bash
-dsge-evaluate \
-  --config configs/qpm_ppo.yaml \
-  --adapter outputs/qpm_ppo/final/policy
-```
-
-## Run SFR-conditioned PPO
-
-This command uses the in-code simulator registry and does not require a configuration file:
-
-```bash
-dsge-ppo-sfr \
-  --simulators all \
-  --output-dir outputs/sfr_ppo
-```
-
-Run a subset of simulators:
-
-```bash
-dsge-ppo-sfr \
-  --simulators qpm,sw,gsw \
-  --output-dir outputs/sfr_ppo_macro
-```
-
-Available registry names are:
-
-```text
-qpm, sw, gsw, ireland, mvf_us, rbc
-```
-
-The SFR model uses four-bit loading by default. Disable it with `--no-sfr-4bit` when appropriate for the available hardware.
-
-## Run cross-simulator testing
-
-```bash
-dsge-cross-test \
-  --checkpoint outputs/sfr_ppo/final \
-  --simulators all \
-  --output outputs/cross_simulator_results.json
-```
-
-The result file records the simulator, scenario, generated actions, per-turn rewards, trajectory return, and any simulator-specific failure.
-
-## Run tests
-
-```bash
-pytest -q
-```
-
+| Path | Description |
+|---|---|
+| `SEMANTIC_MODEL.md` | Semantic model data schema, architecture, checkpoint structure, and embedding output |
+| `SFR_PPO.md` | SFR conditioning, simulator registry, checkpoint structure, and cross-simulator evaluation |
