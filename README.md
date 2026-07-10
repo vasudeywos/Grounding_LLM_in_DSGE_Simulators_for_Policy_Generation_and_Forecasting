@@ -205,10 +205,3 @@ RMSE, correlation, and policy-loss improvement
 | `tests/test_semantic_data.py` | Chronological discourse pairing and leakage prevention |
 | `tests/test_simulator_registry.py` | Simulator-file coverage and scenario discourse |
 | `tests/test_pandemic_validation.py` | Pandemic shock loading, Scenario 6 handling, and GSW mapping |
-
-## Supporting documents
-
-| Path | Description |
-|---|---|
-| `SEMANTIC_MODEL.md` | Semantic model data schema, architecture, checkpoint structure, and embedding output |
-| `SFR_PPO.md` | SFR conditioning, simulator registry, checkpoint structure, and cross-simulator evaluation |
