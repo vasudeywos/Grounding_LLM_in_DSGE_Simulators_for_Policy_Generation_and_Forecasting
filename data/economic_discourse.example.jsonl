@@ -1,0 +1,6 @@
+{"timestamp":"2024-01-01","source":"news","texts":["Inflation pressures eased while employment growth remained resilient."],"shock_targets":{"inflation":-0.12,"demand":0.08,"monetary":0.02},"semantic_volatility":0.10}
+{"timestamp":"2024-01-02","source":"news","texts":["Unexpected price acceleration renewed concerns about persistent inflation.","Bond markets revised expectations toward tighter monetary policy."],"shock_targets":{"inflation":0.45,"expectations":0.31,"monetary":0.27},"semantic_volatility":0.62}
+{"timestamp":"2024-01-03","source":"news","texts":["A sharp energy supply disruption raised production costs and weakened growth expectations."],"shock_targets":{"supply":0.58,"inflation":0.36,"demand":-0.14},"semantic_volatility":0.71}
+{"timestamp":"2024-01-04","source":"news","texts":["Energy deliveries normalized and firms reported improving input availability."],"shock_targets":{"supply":-0.32,"inflation":-0.18,"technology":0.09},"semantic_volatility":0.39}
+{"timestamp":"2024-01-05","source":"news","texts":["Household spending weakened substantially as credit conditions tightened."],"shock_targets":{"demand":-0.47,"monetary":0.22,"expectations":-0.20},"semantic_volatility":0.55}
+

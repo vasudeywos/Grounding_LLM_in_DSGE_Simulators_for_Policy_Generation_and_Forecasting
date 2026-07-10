@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grounded-dsge-rl"
+version = "0.1.0"
+description = "Ground Qwen policy agents in Snowdrop DSGE simulators"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26,<2.0",
+  "pandas>=2.0",
+  "PyYAML>=6.0",
+  "torch>=2.2",
+  "transformers>=4.45",
+  "peft>=0.13",
+  "accelerate>=1.0",
+  "safetensors>=0.4",
+  "sentence-transformers>=3.0",
+  "tqdm>=4.66"
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+dsge-grpo = "dsge_rl.cli.grpo:main"
+dsge-ppo = "dsge_rl.cli.ppo:main"
+dsge-ppo-sfr = "dsge_rl.cli.ppo_sfr:main"
+dsge-evaluate = "dsge_rl.cli.evaluate:main"
+dsge-cross-test = "dsge_rl.cli.cross_test:main"
+semantic-train = "semantic_shift.cli.train:main"
+semantic-encode = "semantic_shift.cli.encode:main"
+
+[tool.setuptools.packages.find]
+include = ["dsge_rl*", "semantic_shift*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,63 @@
+environment:
+  model_path: ../DSGE_Simulator/model.yaml
+  periods: 40
+  burn_in: 8
+  turns: 4
+  action_duration: 4
+  targets:
+    - variable: DLA_CPI
+      label: Inflation
+      target: 0.0
+      weight: 2.0
+    - variable: L_GDP_GAP
+      label: Output Gap
+      target: 0.0
+      weight: 1.0
+  levers:
+    - name: MONETARY
+      shock: SHK_RS
+      minimum: -2.0
+      maximum: 2.0
+      persistence: 0.8
+    - name: FISCAL
+      shock: SHK_L_GDP_GAP
+      minimum: -2.0
+      maximum: 2.0
+      persistence: 0.8
+  scenarios:
+    - name: STAGFLATION
+      shocks:
+        SHK_DLA_CPI: [2.0, 2.0, 2.0, 2.0]
+        SHK_L_GDP_GAP: [-1.0, -1.0, -1.0, -1.0]
+      semantic_volatility: 0.7
+    - name: RECESSION
+      shocks:
+        SHK_L_GDP_GAP: [-1.5, -1.5, -1.5, -1.5]
+        SHK_DLA_CPI: [-0.5, -0.5, -0.5, -0.5]
+      semantic_volatility: 0.4
+  volatility_weight: 0.2
+  action_weight: 0.01
+  invalid_action_penalty: 2.0
+  reward_scale: 10.0
+model:
+  model_id: Qwen/Qwen2.5-1.5B-Instruct
+  load_in_4bit: true
+  torch_dtype: bfloat16
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+training:
+  output_dir: outputs/qpm_ppo
+  seed: 42
+  epochs: 3
+  learning_rate: 0.000005
+  max_new_tokens: 80
+  temperature: 1.0
+  save_every: 10
+  clip_range: 0.2
+  value_clip_range: 0.2
+  value_coefficient: 0.5
+  entropy_coefficient: 0.01
+  gamma: 0.99
+  gae_lambda: 0.95
+  ppo_epochs: 4
